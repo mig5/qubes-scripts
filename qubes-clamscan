@@ -1,0 +1,66 @@
+#!/bin/bash
+#
+# Script to scan VMs and optionally templates
+# with clamscan, batch style
+#
+# See https://mig5.net/content/virus-scanning-your-qubes-vms-and-templates-clamav
+
+usage()
+{
+cat << EOF
+usage: $0
+
+This script will power up VMs (and optionally templates)
+and run clamscan on them.
+
+Templates are scanned on their full / disk, whilst VMs
+are scanned against /rw only.
+
+EOF
+}
+
+SCANTEMPLATE=0
+
+# Parse arguments
+while getopts ":th" OPTION
+do
+  case $OPTION in
+    h)
+      usage
+      exit
+      ;;
+    t)
+      SCANTEMPLATE=1
+      ;;
+    ?)
+      usage
+      exit 1
+      ;;
+  esac
+done
+
+if [ $SCANTEMPLATE -eq 1 ]; then
+  VMS=$(qvm-ls --raw-data name | grep "\\[" | tr -d {}[]=\> | sort)
+  DIR="--exclude-dir=^/sys --exclude-dir=^/dev --exclude-dir=^/proc /"
+else
+  VMS=$(qvm-ls --raw-data name | egrep -v "\\[|dvm|disp|dom0" | tr -d {} | sort)
+  DIR="/rw"
+fi
+
+for vm in ${VMS[@]}; do
+  echo "Attempting to run clamscan on $DIR inside $vm"
+  # First check if the VM is running, so we know if we should shut it down after
+  qvm-check --quiet --running $vm
+  if [ $? -eq 1 ]; then
+    RUNNING=1
+  else
+    RUNNING=0
+  fi
+
+  qvm-run -u root -a --nogui -p $vm "clamscan -ri $DIR"
+
+  # Shut down the VM if it wasn't running to begin with
+  if [ $RUNNING -eq 1 ]; then
+    qvm-shutdown $vm
+  fi
+done

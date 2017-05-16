@@ -1,0 +1,45 @@
+#!/bin/bash
+#
+# Script to run dom0 updates via a 'quasi-disposable' UpdateVM
+#
+# See https://mig5.net/content/using-quasi-disposable-vm-updatevm-qubes
+
+# Variables #
+
+# Name for the UpdateVM
+NAME="updatevm"
+# What was the original UpdateVM?
+OLDUPDATEVM=`qubes-prefs --get updatevm`
+# Net VM we should use
+NETVM="sys-whonix"
+# Template for the updatevm
+TEMPLATE="debian-8"
+
+# DOn't run as root!
+if [[ $(id -u) == 0 ]]; then
+  echo "Don't run this as root! You'll run into permissions problems creating the VM."
+  exit 1
+fi
+
+# Create the UpdateVM
+qvm-create -t $TEMPLATE --label purple $NAME
+
+# Set its NetVM
+qvm-prefs -s $NAME netvm $NETVM
+
+# Set it as the updatevm
+qubes-prefs --set updatevm $NAME
+
+# Now run the main qubes-dom0-update script
+sudo /usr/bin/qubes-dom0-update $@
+
+# Remove the updatevm, we are done with it
+qvm-shutdown --force $NAME
+while qvm-check --running $NAME; do
+  sleep 2
+  continue
+done
+qvm-remove $NAME
+
+# Set the old UpdateVM back just for posterity
+qubes-prefs --set updatevm $OLDUPDATEVM

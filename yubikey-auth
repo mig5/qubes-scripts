@@ -1,0 +1,31 @@
+#!/bin/sh
+#
+# Make this file executable and then configure /etc/pam.d/yubikey
+# with this line:
+#
+# auth required pam_exec.so expose_authtok quiet /usr/local/bin/yubikey-auth
+#
+# Then store the line 'auth include yubikey' in /etc/pam.d/kdm,
+# /etc/pam.d/xscreensaver etc
+#
+# See https://mig5.net/content/yubikey-2fa-qubes-redux-adding-backup-key
+
+# VARIABLES
+#
+# AES of Primary key
+KEY1="CHANGEME"
+# AES of Secondary (backup) key
+KEY2="CHANGEME"
+# Name of the USB VM
+USBVM="sys-usb"
+
+challenge=`head -c63 /dev/urandom | xxd -c 63 -ps`
+response=`qvm-run -a --nogui -u root -p $USBVM "ykchalresp -2 -x $challenge"`
+
+function yubi_auth() {
+  correct_response=`echo $challenge | xxd -r -ps | openssl dgst -sha1 -macopt hexkey:$1 -mac HMAC -r | cut -f1 -d ' '`
+  test "x$correct_response" = "x$response"
+  return $?
+}
+
+yubi_auth $KEY1 || yubi_auth $KEY2

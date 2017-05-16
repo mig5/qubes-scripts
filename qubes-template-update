@@ -1,0 +1,63 @@
+#!/bin/bash
+#
+# Script to update template images in a big batch
+#
+# See https://mig5.net/content/batch-updating-templatevms-qubes-30
+
+# Get a list of templates
+TEMPLATES=$(qvm-ls --raw-data name | grep "\\[" | tr -d {}[]=\> | sort)
+
+usage()
+{
+cat << EOF
+usage: $0
+
+This script will power up template images (if not already running)
+and apply software updates on them.
+
+Currently only Fedora and Debian-based templates are supported.
+EOF
+}
+
+# Parse arguments
+while getopts ":h" OPTION
+do
+  case $OPTION in
+    h)
+      usage
+      exit
+      ;;
+    ?)
+      usage
+      exit 1
+      ;;
+  esac
+done
+
+
+for template in ${TEMPLATES[@]}; do
+  echo "Attempting to run updates on $template"
+  # First check if the VM is running, so we know if we should shut it down after
+  qvm-check --quiet --running $template
+  if [ $? -eq 1 ]; then
+    RUNNING=1
+  else
+    RUNNING=0
+  fi
+  # Attempt to detect whether this is a Debian system
+  qvm-run -u root -a --nogui -p $template "test -f /etc/debian_version"
+  if [ $? -eq 0 ]; then
+    # Debian
+    qvm-run -u root -a --nogui -p $template "apt-get update; DEBIAN_FRONTEND=noninteractive apt-get -y dist-upgrade; apt-get clean"
+  else
+    # Fedora
+    qvm-run -u root -a --nogui -p $template "dnf -y update; dnf clean all"
+  fi
+  echo "$template has been updated"
+  if [ $RUNNING -eq 1 ]; then
+    # The Template wasn't running to begin with, let's shut it down
+    qvm-shutdown $template
+  else
+    echo "You should probably shutdown $template when it's convenient."
+  fi
+done
