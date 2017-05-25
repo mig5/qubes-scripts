@@ -31,7 +31,7 @@ qvm-prefs -s $NAME netvm $NETVM
 qubes-prefs --set updatevm $NAME
 
 # Now run the main qubes-dom0-update script
-sudo /usr/bin/qubes-dom0-update $@
+sudo /usr/bin/qubes-dom0-update "$@"
 
 # Remove the updatevm, we are done with it
 qvm-shutdown --force $NAME
