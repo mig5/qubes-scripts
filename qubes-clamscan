@@ -21,6 +21,22 @@ EOF
 
 SCANTEMPLATE=0
 
+# List templates
+list_templates() {
+  qvm-ls --raw-data name-raw type \
+  | while IFS='|' read name type; do
+    [ Tpl = "$type" ] && echo "$name"
+  done | sort
+}
+
+# List non-templates and non-dispVMs
+list_vms() {
+  qvm-ls --raw-data name-raw type \
+  | egrep -v "disp|dvm" | while IFS='|' \
+  read name type; do [ -z "$type" ] \
+  && echo "$name"; done | sort
+}
+
 # Parse arguments
 while getopts ":th" OPTION
 do
@@ -40,10 +56,10 @@ do
 done
 
 if [ $SCANTEMPLATE -eq 1 ]; then
-  VMS=$(qvm-ls --raw-data name | grep "\\[" | tr -d {}[]=\> | sort)
+  VMS=`list_templates`
   DIR="--exclude-dir=^/sys --exclude-dir=^/dev --exclude-dir=^/proc /"
 else
-  VMS=$(qvm-ls --raw-data name | egrep -v "\\[|dvm|disp|dom0" | tr -d {} | sort)
+  VMS=`list_vms`
   DIR="/rw"
 fi
 
