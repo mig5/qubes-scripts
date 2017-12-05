@@ -5,7 +5,12 @@
 # See https://mig5.net/content/batch-updating-templatevms-qubes-30
 
 # Get a list of templates
-TEMPLATES=$(qvm-ls --raw-data name | grep "\\[" | tr -d {}[]=\> | sort)
+list_templates() {
+    qvm-ls --raw-data name-raw type \
+    | while IFS='|' read name type; do
+        [ Tpl = "$type" ] && echo "$name"
+    done | sort
+}
 
 usage()
 {
@@ -35,7 +40,7 @@ do
 done
 
 
-for template in ${TEMPLATES[@]}; do
+for template in `list_templates`; do
   echo "Attempting to run updates on $template"
   # First check if the VM is running, so we know if we should shut it down after
   qvm-check --quiet --running $template
